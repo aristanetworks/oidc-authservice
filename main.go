@@ -205,6 +205,14 @@ func main() {
 		s.sessionSameSite = http.SameSiteLaxMode
 	}
 
+	s.newState = newStateFunc(
+		&Config{
+			SessionDomain: c.SessionDomain,
+			SchemeDefault: c.SchemeDefault,
+			SchemeHeader:  c.SchemeHeader,
+		},
+	)
+
 	// Setup complete, mark server ready
 	isReady.Set()
 

@@ -48,6 +48,7 @@ type server struct {
 	userIdTransformer       UserIDTransformer
 	caBundle                []byte
 	sessionSameSite         http.SameSite
+	newState                StateFunc
 }
 
 // jwtClaimOpts specifies the location of the user's identity inside a JWT's
@@ -143,7 +144,7 @@ func (s *server) authCodeFlowAuthenticationRequest(w http.ResponseWriter, r *htt
 	logger := loggerForRequest(r)
 
 	// Initiate OIDC Flow with Authorization Request.
-	state, err := createState(r, w, s.oidcStateStore)
+	state, err := createState(r, w, s.oidcStateStore, s.newState)
 	if err != nil {
 		logger.Errorf("Failed to save state in store: %v", err)
 		returnMessage(w, http.StatusInternalServerError, "Failed to save state in store.")

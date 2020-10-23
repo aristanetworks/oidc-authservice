@@ -4,12 +4,15 @@ package main
 
 import (
 	"encoding/gob"
+	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/gorilla/sessions"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -27,9 +30,54 @@ type State struct {
 	FirstVisitedURL string
 }
 
-func newState(firstVisitedURL string) *State {
+type Config struct {
+	SchemeDefault string
+	SchemeHeader  string
+	SessionDomain string
+}
+
+type StateFunc func(*http.Request) *State
+
+func newStateFunc(config *Config) StateFunc {
+	if len(config.SessionDomain) > 0 {
+		return newSchemeAndHost(config)
+	}
+	return relativeURL
+}
+
+func firstVisitedURL(r *http.Request) string {
+	u, err := url.Parse("")
+	if err != nil {
+		// this should never happen
+		panic(fmt.Sprintf("Failed to initialize empty URL: %v", err))
+	}
+
+	u.Path = r.URL.Path
+	u.RawPath = r.URL.RawPath
+	u.RawQuery = r.URL.RawQuery
+	return u.String()
+}
+
+func relativeURL(r *http.Request) *State {
 	return &State{
-		FirstVisitedURL: firstVisitedURL,
+		FirstVisitedURL: firstVisitedURL(r),
+	}
+}
+
+func newSchemeAndHost(config *Config) StateFunc {
+	return func(r *http.Request) *State {
+		// Use header value if it exists
+		s := r.Header.Get(config.SchemeHeader)
+		if s == "" {
+			s = config.SchemeDefault
+		}
+		// XXX Could return an error here. Would require changing the StateFunc type
+		if !strings.HasSuffix(r.Host, config.SessionDomain) {
+			log.Warnf("Request host %q is not a subdomain of %q", r.Host, config.SessionDomain)
+		}
+		return &State{
+			FirstVisitedURL: s + "://" + r.Host + firstVisitedURL(r),
+		}
 	}
 }
 
@@ -38,22 +86,15 @@ func newState(firstVisitedURL string) *State {
 // It returns the session key, which can be used as the state value to start
 // an OIDC authentication request.
 func createState(r *http.Request, w http.ResponseWriter,
-	store sessions.Store) (string, error) {
+	store sessions.Store, fn StateFunc) (string, error) {
 
-	firstVisitedURL, err := url.Parse("")
-	if err != nil {
-		return "", errors.Wrap(err, "Failed to initialize empty URL")
-	}
-	firstVisitedURL.Path = r.URL.Path
-	firstVisitedURL.RawPath = r.URL.RawPath
-	firstVisitedURL.RawQuery = r.URL.RawQuery
-	s := newState(firstVisitedURL.String())
+	s := fn(r)
 	session := sessions.NewSession(store, oidcStateCookie)
 	session.Options.MaxAge = int(20 * time.Minute)
 	session.Options.Path = "/"
 	session.Values[sessionValueState] = *s
 
-	err = session.Save(r, w)
+	err := session.Save(r, w)
 	if err != nil {
 		return "", errors.Wrap(err, "error trying to save session")
 	}
