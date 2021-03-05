@@ -71,7 +71,7 @@ type AuthzConfig struct {
 type HostRule struct {
 	// groupMatcher map[string]struct{}
 	// membership is required for at least 1 group in the list
-	Groups []string `yaml: "groups"`
+	Groups []string `yaml:"groups"`
 	// XXX could be cool to have an option to require menbership in all groups.
 	//     implementation idea - add a `requireAll bool` field that is false by default.
 }
@@ -108,24 +108,30 @@ func newConfigAuthorizer(configPath string) Authorizer {
 	return &ca
 }
 
-func (ca *configAuthorizer) parseConfig(path string) (*AuthzConfig, error) {
+func (ca *configAuthorizer) parse(raw []byte) (*AuthzConfig, error) {
 	var c AuthzConfig
+	decoder := yaml.NewDecoder(bytes.NewReader(raw))
+	err := decoder.Decode(&c)
+	// XXX io.EOF is returned for an empty file
+	if err != nil {
+		return nil, err
+	}
+	// XXX should add some validation here probably
+	// return &c, c.Validate()
+	return &c, nil
+}
 
+func (ca *configAuthorizer) parseConfig(path string) (*AuthzConfig, error) {
 	b, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("error loading AuthzConfig file %q: %v", path, err)
 	}
-
-	decoder := yaml.NewDecoder(bytes.NewReader(b))
-	err = decoder.Decode(&c)
-	// XXX io.EOF is returned for an empty file
+	c, err := ca.parse(b)
 	if err != nil {
-		return nil, fmt.Errorf("error parsing AuthzConfig file %q: %v", path, err)
+		return nil, fmt.Errorf("errors while parsing AuthzConfig file %q: %v", path, err)
 	}
 
-	// XXX should add some validation here probably
-	// return &c, c.Validate()
-	return &c, nil
+	return c, nil
 }
 
 func (ca *configAuthorizer) Authorize(r *http.Request, userinfo user.Info) (bool, string, error) {
