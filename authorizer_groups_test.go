@@ -74,6 +74,9 @@ func TestLoadConfig(t *testing.T) {
 }
 
 func TestConfigAuthorizer(t *testing.T) {
-	ca := newConfigAuthorizer("./testdata/authz.yaml")
-	t.Logf("ca=%+v", ca)
+	ca, err := newConfigAuthorizer("./testdata/authz.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("created ca %+v", ca)
 }

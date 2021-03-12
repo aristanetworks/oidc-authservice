@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	log "github.com/sirupsen/logrus"
+	fsnotify "gopkg.in/fsnotify/fsnotify.v1"
 	yaml "gopkg.in/yaml.v3"
 
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -80,32 +81,43 @@ type configAuthorizer struct {
 	config       *AuthzConfig
 	configPath   string
 	groupMatcher map[string]map[string]struct{}
+	watcher      *fsnotify.Watcher
 }
 
-func newConfigAuthorizer(configPath string) Authorizer {
+func newConfigAuthorizer(configPath string) (Authorizer, error) {
 	ca := configAuthorizer{}
 	ca.configPath = configPath
-	authzConfig, err := ca.parseConfig(configPath)
-	if err != nil {
-		panic(fmt.Sprintf("error loading config: %v", err))
+	if err := ca.loadConfig(); err != nil {
+		return nil, err
 	}
-	ca.config = authzConfig
 
-	// populate groupMatcher
-	ca.groupMatcher = make(map[string]map[string]struct{})
-	for host, rule := range ca.config.Rules {
-		ca.groupMatcher[host] = make(map[string]struct{})
+	var err error
+	ca.watcher, err = fsnotify.NewWatcher()
+	if err != nil {
+		return nil, fmt.Errorf("error creating file watcher: %v", err)
+	}
+
+	return &ca, nil
+}
+
+func (ca *configAuthorizer) loadConfig() error {
+	authzConfig, err := ca.parseConfig(ca.configPath)
+	if err != nil {
+		return fmt.Errorf("failed to parse config: %v", err)
+	}
+
+	// build groupMatcher map
+	groupMatcher := make(map[string]map[string]struct{})
+	for host, rule := range authzConfig.Rules {
+		groupMatcher[host] = make(map[string]struct{})
 		for _, g := range rule.Groups {
-			ca.groupMatcher[host][g] = struct{}{}
+			groupMatcher[host][g] = struct{}{}
 		}
 	}
-
-	log.Infof("AuthzConfig: %+v", *authzConfig)
-
-	// TODO inotify stuff, maybe just spawn a goroutine here.
-	// wanna make sure to stop it gracefully
-	// watcher, err := fsnotify.NewWatcher()
-	return &ca
+	log.Infof("loaded AuthzConfig: %+v", *authzConfig)
+	ca.groupMatcher = groupMatcher
+	ca.config = authzConfig
+	return nil
 }
 
 func (ca *configAuthorizer) parse(raw []byte) (*AuthzConfig, error) {

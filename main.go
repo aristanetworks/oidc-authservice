@@ -17,6 +17,7 @@ import (
 	"github.com/tevino/abool"
 	"github.com/yosssi/boltstore/shared"
 	"golang.org/x/oauth2"
+	fsnotify "gopkg.in/fsnotify/fsnotify.v1"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	clientconfig "sigs.k8s.io/controller-runtime/pkg/client/config"
 )
@@ -157,14 +158,16 @@ func main() {
 		oauth2Config:            oauth2Config,
 	}
 
-	// XXX decide if I want to have both authorizers or maybe fold functionality of GroupsAuthorizaer
-	//     into the ConfigAuthorizer
+	// XXX maybe get rid of old groupsAuthorizer
 	var groupsAuthorizer Authorizer
 	if c.AuthzConfigPath != "" {
-		log.Infof("config path exists path=%s", c.AuthzConfigPath)
-		groupsAuthorizer = newConfigAuthorizer(c.AuthzConfigPath)
+		log.Infof("AuthzConfig file path=%s", c.AuthzConfigPath)
+		groupsAuthorizer, err = newConfigAuthorizer(c.AuthzConfigPath)
+		if err != nil {
+			log.Fatalf("Error creating configAuthorizer: %v", err)
+		}
 	} else {
-		log.Info("NO CONFIG EXISTS!!!!")
+		log.Info("no AuthzConfig file specified, using basic groups authorizer")
 		groupsAuthorizer = newGroupsAuthorizer(c.GroupsAllowlist)
 
 	}
@@ -176,6 +179,47 @@ func main() {
 		clientID:    c.ClientID,
 		userIDClaim: c.UserIDClaim,
 		groupsClaim: c.GroupsClaim,
+	}
+
+	// start watcher goroutine for configAuthorizer
+	// XXX maybe move this code to a method of configAuthorizer
+	//     or some other nicer way.
+	if ca, ok := groupsAuthorizer.(*configAuthorizer); ok {
+		defer ca.watcher.Close()
+		go func() {
+			for {
+				select {
+				case ev, ok := <-ca.watcher.Events:
+					if !ok {
+						return
+					}
+					log.Debugf("file watcher event: name=%s op=%s", ev.Name, ev.Op)
+					// do nothing on Chmod
+					if ev.Op == fsnotify.Chmod {
+						continue
+					}
+					if ev.Op&fsnotify.Remove == fsnotify.Remove {
+						// readd watcher on remove because fsnotify stops watching
+						if err := ca.watcher.Add(ev.Name); err != nil {
+							log.Errorf("failed to readd watcher for file %q: %v")
+						}
+					}
+					log.Infof("try to reload config file...")
+					if err := ca.loadConfig(); err != nil {
+						log.Errorf("failed to reload config: %v", err)
+					}
+				case err, ok := <-ca.watcher.Errors:
+					if !ok {
+						return
+					}
+					log.Infof("watcher error: %v", err)
+				}
+			}
+		}()
+		err := ca.watcher.Add(c.AuthzConfigPath)
+		if err != nil {
+			log.Fatalf("Error updating file watcher: %v", err)
+		}
 	}
 
 	// Set the server values.
