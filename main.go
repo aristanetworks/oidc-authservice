@@ -170,6 +170,7 @@ func main() {
 		// TODO: Add support for Redis
 		store:                  store,
 		oidcStateStore:         oidcStateStore,
+		stateFunc:              NewStateFunc(c),
 		afterLoginRedirectURL:  c.AfterLoginURL.String(),
 		homepageURL:            c.HomepageURL.String(),
 		afterLogoutRedirectURL: c.AfterLogoutURL.String(),
@@ -184,6 +185,7 @@ func main() {
 		},
 		sessionMaxAgeSeconds:    c.SessionMaxAge,
 		strictSessionValidation: c.StrictSessionValidation,
+		sessionDomain:           c.SessionDomain,
 		authHeader:              c.AuthHeader,
 		caBundle:                caBundle,
 		authenticators: []authenticator.Request{

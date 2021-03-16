@@ -39,6 +39,7 @@ type server struct {
 	afterLoginRedirectURL   string
 	homepageURL             string
 	afterLogoutRedirectURL  string
+	sessionDomain           string
 	sessionMaxAgeSeconds    int
 	strictSessionValidation bool
 	authHeader              string
@@ -46,6 +47,7 @@ type server struct {
 	upstreamHTTPHeaderOpts  httpHeaderOpts
 	caBundle                []byte
 	sessionSameSite         http.SameSite
+	stateFunc               StateFunc
 }
 
 // jwtClaimOpts specifies the location of the user's identity inside a JWT's
@@ -141,7 +143,7 @@ func (s *server) authCodeFlowAuthenticationRequest(w http.ResponseWriter, r *htt
 	logger := loggerForRequest(r)
 
 	// Initiate OIDC Flow with Authorization Request.
-	state, err := createState(r, w, s.oidcStateStore)
+	state, err := createState(r, w, s.oidcStateStore, s.stateFunc)
 	if err != nil {
 		logger.Errorf("Failed to save state in store: %v", err)
 		returnMessage(w, http.StatusInternalServerError, "Failed to save state in store.")
@@ -230,6 +232,7 @@ func (s *server) callback(w http.ResponseWriter, r *http.Request) {
 	session.Options.Path = "/"
 	// Extra layer of CSRF protection
 	session.Options.SameSite = s.sessionSameSite
+	session.Options.Domain = s.sessionDomain
 
 	userID, ok := claims[s.idTokenOpts.userIDClaim].(string)
 	if !ok {

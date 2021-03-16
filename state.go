@@ -5,10 +5,12 @@ package main
 import (
 	"encoding/gob"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gorilla/sessions"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -19,6 +21,8 @@ const (
 func init() {
 	gob.Register(State{})
 }
+
+// TODO maybe move state code to its own package
 
 type State struct {
 	// FirstVisitedURL is the URL that the user visited when we redirected them
@@ -32,14 +36,47 @@ func newState(firstVisitedURL string) *State {
 	}
 }
 
+type StateFunc func(*http.Request) *State
+
+func NewStateFunc(config *config) StateFunc {
+	if len(config.SessionDomain) > 0 {
+		return newSchemeAndHost(config)
+	}
+	return relativeURL
+}
+
+func relativeURL(r *http.Request) *State {
+	return &State{
+		FirstVisitedURL: r.URL.String(),
+	}
+}
+
+func newSchemeAndHost(config *config) StateFunc {
+	return func(r *http.Request) *State {
+		// try to get request protocol from header
+		p := r.Header.Get("X-Forwarded-Proto")
+		if p == "" {
+			// XXX maybe could hardcode "https"
+			p = config.SchemeDefault
+		}
+		// XXX maybe return an error here. would require changing the StateFunc type
+		if !strings.HasSuffix(r.Host, config.SessionDomain) {
+			log.Warnf("Request host %q is not a subdomain of %q", r.Host, config.SessionDomain)
+		}
+		return &State{
+			FirstVisitedURL: p + "://" + r.Host + r.URL.String(),
+		}
+	}
+}
+
 // createState creates the state parameter from the incoming request, stores
 // it in the session store and sets a cookie with the session key.
 // It returns the session key, which can be used as the state value to start
 // an OIDC authentication request.
 func createState(r *http.Request, w http.ResponseWriter,
-	store sessions.Store) (string, error) {
+	store sessions.Store, sf StateFunc) (string, error) {
 
-	s := newState(r.URL.Path)
+	s := sf(r)
 	session := sessions.NewSession(store, oidcStateCookie)
 	session.Options.MaxAge = int(20 * time.Minute)
 	session.Options.Path = "/"
