@@ -233,6 +233,8 @@ func (s *server) callback(w http.ResponseWriter, r *http.Request) {
 	// Extra layer of CSRF protection
 	session.Options.SameSite = s.sessionSameSite
 	session.Options.Domain = s.sessionDomain
+	session.Options.HttpOnly = true
+	session.Options.Secure = true
 
 	userID, ok := claims[s.idTokenOpts.userIDClaim].(string)
 	if !ok {
