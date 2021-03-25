@@ -29,6 +29,9 @@ type sessionAuthenticator struct {
 	// header is the header to check as an alternative to finding the session
 	// value.
 	header string
+	// tokenHeader is the header that is set by the authenticator containing
+	// the user id token
+	tokenHeader string
 	// strictSessionValidation mode checks the validity of the access token
 	// connected with the session on every request.
 	strictSessionValidation bool
@@ -93,6 +96,9 @@ func (sa *sessionAuthenticator) Authenticate(w http.ResponseWriter, r *http.Requ
 	if !ok {
 		groups = []string{}
 	}
+
+	// set auth header with user token
+	w.Header().Set(sa.tokenHeader, session.Values[userSessionIDToken].(string))
 
 	resp := &User{
 		Name:   session.Values[userSessionUserID].(string),
