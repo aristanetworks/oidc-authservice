@@ -19,7 +19,7 @@ type kubernetesAuthenticator struct {
 	authenticator authenticator.Request
 }
 
-func newKubernetesAuthenticator(c *rest.Config, aud []string) (authenticator.Request, error) {
+func newKubernetesAuthenticator(c *rest.Config, aud []string) (Authenticator, error) {
 	config := authenticatorfactory.DelegatingAuthenticatorConfig{
 		Anonymous:               false,
 		TokenAccessReviewClient: kubernetes.NewForConfigOrDie(c).AuthenticationV1().TokenReviews(),
@@ -29,14 +29,19 @@ func newKubernetesAuthenticator(c *rest.Config, aud []string) (authenticator.Req
 	return &kubernetesAuthenticator{audiences: aud, authenticator: k8sAuthenticator}, err
 }
 
-func (k8sauth *kubernetesAuthenticator) AuthenticateRequest(r *http.Request) (*authenticator.Response, bool, error) {
+func (k8sauth *kubernetesAuthenticator) Authenticate(w http.ResponseWriter, r *http.Request) (*User, error) {
 	resp, found, err := k8sauth.authenticator.AuthenticateRequest(
 		r.WithContext(authenticator.WithAudiences(r.Context(), k8sauth.audiences)),
 	)
 
 	// If the request contains an expired token, we stop trying and return 403
 	if err != nil && strings.Contains(err.Error(), bearerTokenExpiredMsg) {
-		return nil, false, &loginExpiredError{Err: err}
+		return nil, &loginExpiredError{Err: err}
 	}
-	return resp, found, err
+
+	if !found {
+		return nil, nil
+	}
+
+	return &User{Name: resp.User.GetName(), Groups: resp.User.GetGroups()}, nil
 }

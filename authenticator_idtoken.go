@@ -4,8 +4,6 @@ import (
 	"net/http"
 
 	oidc "github.com/coreos/go-oidc"
-	"k8s.io/apiserver/pkg/authentication/authenticator"
-	"k8s.io/apiserver/pkg/authentication/user"
 )
 
 type idTokenAuthenticator struct {
@@ -17,13 +15,13 @@ type idTokenAuthenticator struct {
 	groupsClaim string
 }
 
-func (s *idTokenAuthenticator) AuthenticateRequest(r *http.Request) (*authenticator.Response, bool, error) {
+func (s *idTokenAuthenticator) Authenticate(w http.ResponseWriter, r *http.Request) (*User, error) {
 	logger := loggerForRequest(r)
 
 	// get id-token from header
 	bearer := getBearerToken(r.Header.Get(s.header))
 	if len(bearer) == 0 {
-		return nil, false, nil
+		return nil, nil
 	}
 
 	ctx := setTLSContext(r.Context(), s.caBundle)
@@ -33,19 +31,19 @@ func (s *idTokenAuthenticator) AuthenticateRequest(r *http.Request) (*authentica
 	token, err := verifier.Verify(ctx, bearer)
 	if err != nil {
 		logger.Errorf("id-token verification failed: %v", err)
-		return nil, false, nil
+		return nil, nil
 	}
 
 	var claims map[string]interface{}
 	if err := token.Claims(&claims); err != nil {
 		logger.Errorf("retrieving user claims failed: %v", err)
-		return nil, false, nil
+		return nil, nil
 	}
 
 	if claims[s.userIDClaim] == nil {
 		// No USERID_CLAIM, pass this authenticator
 		logger.Error("USERID_CLAIM doesn't exist in the id token")
-		return nil, false, nil
+		return nil, nil
 	}
 
 	groups := []string{}
@@ -54,11 +52,6 @@ func (s *idTokenAuthenticator) AuthenticateRequest(r *http.Request) (*authentica
 		groups = interfaceSliceToStringSlice(groupsClaim.([]interface{}))
 	}
 
-	resp := &authenticator.Response{
-		User: &user.DefaultInfo{
-			Name:   claims[s.userIDClaim].(string),
-			Groups: groups,
-		},
-	}
-	return resp, true, nil
+	user := User{Name: claims[s.userIDClaim].(string), Groups: groups}
+	return &user, nil
 }

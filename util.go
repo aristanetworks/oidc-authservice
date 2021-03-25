@@ -17,7 +17,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
-	"k8s.io/apiserver/pkg/authentication/user"
 )
 
 func realpath(path string) (string, error) {
@@ -156,10 +155,10 @@ func getBearerToken(value string) string {
 	return value
 }
 
-func userInfoToHeaders(info user.Info, opts *httpHeaderOpts, transformer *UserIDTransformer) map[string]string {
+func userInfoToHeaders(user *User, opts *httpHeaderOpts, transformer *UserIDTransformer) map[string]string {
 	res := map[string]string{}
-	res[opts.userIDHeader] = opts.userIDPrefix + transformer.Transform(info.GetName())
-	res[opts.groupsHeader] = strings.Join(info.GetGroups(), ",")
+	res[opts.userIDHeader] = opts.userIDPrefix + transformer.Transform(user.Name)
+	res[opts.groupsHeader] = strings.Join(user.Groups, ",")
 	return res
 }
 

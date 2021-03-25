@@ -18,7 +18,6 @@ import (
 	"github.com/yosssi/boltstore/shared"
 	"golang.org/x/oauth2"
 	fsnotify "gopkg.in/fsnotify/fsnotify.v1"
-	"k8s.io/apiserver/pkg/authentication/authenticator"
 	clientconfig "sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
@@ -134,7 +133,7 @@ func main() {
 		enabledAuthenticators[authenticator] = true
 	}
 
-	authenticators := []authenticator.Request{}
+	authenticators := []Authenticator{}
 
 	if enabledAuthenticators["kubernetes"] {
 		// Get Kubernetes authenticator
@@ -173,7 +172,7 @@ func main() {
 		authenticators = append(authenticators, sessionAuthenticator)
 	}
 
-	// XXX maybe get rid of old groupsAuthorizer
+	// XXX clean this up, maybe get rid of old groupsAuthorizer
 	var groupsAuthorizer Authorizer
 	if c.AuthzConfigPath != "" {
 		log.Infof("AuthzConfig file path=%s", c.AuthzConfigPath)

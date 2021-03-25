@@ -13,8 +13,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/tevino/abool"
 	"golang.org/x/oauth2"
-	"k8s.io/apiserver/pkg/authentication/authenticator"
-	"k8s.io/apiserver/pkg/authentication/user"
 )
 
 var (
@@ -34,7 +32,7 @@ type server struct {
 	oauth2Config            *oauth2.Config
 	store                   sessions.Store
 	oidcStateStore          sessions.Store
-	authenticators          []authenticator.Request
+	authenticators          []Authenticator
 	authorizers             []Authorizer
 	afterLoginRedirectURL   string
 	homepageURL             string
@@ -64,6 +62,7 @@ type httpHeaderOpts struct {
 	userIDHeader string
 	userIDPrefix string
 	groupsHeader string
+	tokenHeader  string
 }
 
 func (s *server) authenticate(w http.ResponseWriter, r *http.Request) {
@@ -71,37 +70,43 @@ func (s *server) authenticate(w http.ResponseWriter, r *http.Request) {
 	logger := loggerForRequest(r)
 	logger.Info("Authenticating request...")
 
-	var userInfo user.Info
+	var user *User
 	for i, auth := range s.authenticators {
-		resp, found, err := auth.AuthenticateRequest(r)
+		resp, err := auth.Authenticate(w, r)
+
 		if err != nil {
 			logger.Errorf("Error authenticating request using authenticator %d: %v", i, err)
-			// If we get a login expired error, it means the authenticator
-			// recognised a valid authentication method which has expired
+			// If the authenticator returns an error, this indicates that
+			// the request contained a valid authentication method which has expired
 			var expiredErr *loginExpiredError
 			if errors.As(err, &expiredErr) {
 				returnMessage(w, http.StatusUnauthorized, expiredErr.Error())
 				return
 			}
 		}
-		if found {
-			userInfo = resp.User
-			logger.Infof("UserInfo: %+v", userInfo)
+		// Check if user was set/found
+		if resp != nil {
+			user = resp
+			// TODO do not print userInfo.IDToken
+			// solve this by either making it a hidden field,
+			// only logging name + groups
+			// writing the token header inside of the authenticator -- prob best
+			logger.Infof("UserInfo: %+v", user)
 			break
 		}
 	}
-	if userInfo == nil {
+	if user == nil {
 		logger.Infof("Failed to authenticate using authenticators. Initiating OIDC Authorization Code flow...")
 		// TODO: Detect "X-Requested-With" header and return 401
 		s.authCodeFlowAuthenticationRequest(w, r)
 		return
 	}
 
-	logger = logger.WithField("user", userInfo)
+	logger = logger.WithField("user", user)
 	logger.Info("Authorizing request...")
 
 	for i, authz := range s.authorizers {
-		allowed, reason, err := authz.Authorize(r, userInfo)
+		allowed, reason, err := authz.Authorize(r, user)
 		if err != nil {
 			logger.Errorf("Error authorizing request using authorizer %d: %v", i, err)
 			w.WriteHeader(http.StatusForbidden)
@@ -123,7 +128,7 @@ func (s *server) authenticate(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			// TODO: Move this to the web server and make it prettier
-			msg := fmt.Sprintf("User '%s' failed authorization with reason: %s. ", userInfo.GetName(),
+			msg := fmt.Sprintf("User '%s' failed authorization with reason: %s. ", user.Name,
 				reason)
 
 			returnHTML(w, http.StatusForbidden, msg)
@@ -131,7 +136,7 @@ func (s *server) authenticate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	for k, v := range userInfoToHeaders(userInfo, &s.upstreamHTTPHeaderOpts, &s.userIdTransformer) {
+	for k, v := range userInfoToHeaders(user, &s.upstreamHTTPHeaderOpts, &s.userIdTransformer) {
 		w.Header().Set(k, v)
 	}
 	w.WriteHeader(http.StatusOK)

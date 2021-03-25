@@ -11,8 +11,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	fsnotify "gopkg.in/fsnotify/fsnotify.v1"
 	yaml "gopkg.in/yaml.v3"
-
-	"k8s.io/apiserver/pkg/authentication/user"
 )
 
 const (
@@ -23,7 +21,7 @@ const (
 // The interface draws some inspiration from Kubernetes' interface:
 // https://github.com/kubernetes/apiserver/blob/master/pkg/authorization/authorizer/interfaces.go#L67-L72
 type Authorizer interface {
-	Authorize(r *http.Request, userinfo user.Info) (allowed bool, reason string, err error)
+	Authorize(r *http.Request, user *User) (allowed bool, reason string, err error)
 }
 
 type groupsAuthorizer struct {
@@ -44,17 +42,17 @@ func newGroupsAuthorizer(allowlist []string) Authorizer {
 	}
 }
 
-func (ga *groupsAuthorizer) Authorize(r *http.Request, userinfo user.Info) (bool, string, error) {
+func (ga *groupsAuthorizer) Authorize(r *http.Request, user *User) (bool, string, error) {
 	if ga.allowed[wildcardMatcher] {
 		return true, "", nil
 	}
-	for _, g := range userinfo.GetGroups() {
+	for _, g := range user.Groups {
 		if ga.allowed[g] {
 			return true, "", nil
 		}
 	}
 	reason := fmt.Sprintf("User's groups ([%s]) are not in allowlist.",
-		strings.Join(userinfo.GetGroups(), ","))
+		strings.Join(user.Groups, ","))
 	return false, reason, nil
 }
 
@@ -150,7 +148,7 @@ func (ca *configAuthorizer) parseConfig(path string) (*AuthzConfig, error) {
 	return c, nil
 }
 
-func (ca *configAuthorizer) Authorize(r *http.Request, userinfo user.Info) (bool, string, error) {
+func (ca *configAuthorizer) Authorize(r *http.Request, user *User) (bool, string, error) {
 	host := r.Host
 
 	ca.lock.RLock()
@@ -161,9 +159,9 @@ func (ca *configAuthorizer) Authorize(r *http.Request, userinfo user.Info) (bool
 		// TODO make this default behavior configurable
 		return true, "", nil
 	}
-	for _, g := range userinfo.GetGroups() {
+	for _, g := range user.Groups {
 		if _, allowed := allowedGroups[g]; allowed {
-			log.Infof("authorization success: host=%s user=%s matchedGroup=%s ", host, userinfo, g)
+			log.Infof("authorization success: host=%s user=%s matchedGroup=%s ", host, user.Name, g)
 			return true, "", nil
 		}
 	}
