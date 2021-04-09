@@ -165,6 +165,7 @@ func main() {
 			cookie:                  userSessionCookie,
 			header:                  c.AuthHeader,
 			tokenHeader:             c.TokenHeader,
+			tokenScheme:             c.TokenScheme,
 			strictSessionValidation: c.StrictSessionValidation,
 			caBundle:                caBundle,
 			provider:                provider,
