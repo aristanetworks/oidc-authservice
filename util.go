@@ -159,6 +159,13 @@ func userInfoToHeaders(user *User, opts *httpHeaderOpts, transformer *UserIDTran
 	res := map[string]string{}
 	res[opts.userIDHeader] = opts.userIDPrefix + transformer.Transform(user.Name)
 	res[opts.groupsHeader] = strings.Join(user.Groups, ",")
+
+	if opts.userIDHeader != "" {
+		res[opts.userIDHeader] = opts.userIDPrefix + transformer.Transform(user.Name)
+	}
+	if opts.groupsHeader != "" {
+		res[opts.groupsHeader] = strings.Join(user.Groups, ",")
+	}
 	return res
 }
 
