@@ -155,20 +155,6 @@ func getBearerToken(value string) string {
 	return value
 }
 
-func userInfoToHeaders(user *User, opts *httpHeaderOpts, transformer *UserIDTransformer) map[string]string {
-	res := map[string]string{}
-	res[opts.userIDHeader] = opts.userIDPrefix + transformer.Transform(user.Name)
-	res[opts.groupsHeader] = strings.Join(user.Groups, ",")
-
-	if opts.userIDHeader != "" {
-		res[opts.userIDHeader] = opts.userIDPrefix + transformer.Transform(user.Name)
-	}
-	if opts.groupsHeader != "" {
-		res[opts.groupsHeader] = strings.Join(user.Groups, ",")
-	}
-	return res
-}
-
 func interfaceSliceToStringSlice(in []interface{}) []string {
 	if in == nil {
 		return nil
