@@ -98,6 +98,9 @@ func (s *server) authenticate(w http.ResponseWriter, r *http.Request) {
 	logger := loggerForRequest(r)
 	logger.Info("Authenticating request...")
 
+	// Enforce no caching on the browser side.
+	w.Header().Add("Cache-Control", "private, max-age=0, no-cache, no-store")
+
 	var user *User
 	for i, auth := range s.authenticators {
 		resp, err := auth.Authenticate(w, r)
@@ -189,6 +192,9 @@ func (s *server) authCodeFlowAuthenticationRequest(w http.ResponseWriter, r *htt
 func (s *server) callback(w http.ResponseWriter, r *http.Request) {
 
 	logger := loggerForRequest(r)
+
+	// Enforce no caching on the browser side.
+	w.Header().Add("Cache-Control", "private, max-age=0, no-cache, no-store")
 
 	// Get authorization code from authorization response.
 	var authCode = r.FormValue("code")
