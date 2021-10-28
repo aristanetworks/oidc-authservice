@@ -13,7 +13,6 @@ require (
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/pkg/errors v0.9.1
 	github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35 // indirect
-	github.com/quasoft/memstore v0.0.0-20180925164028-84a050167438
 	github.com/sirupsen/logrus v1.4.2
 	github.com/stretchr/testify v1.4.0
 	github.com/tevino/abool v0.0.0-20170917061928-9b9efcf221b5
