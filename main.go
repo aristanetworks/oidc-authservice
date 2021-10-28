@@ -129,14 +129,26 @@ func main() {
 	}
 	defer oidcStateStore.Close()
 
-	// Get Kubernetes authenticator
-	restConfig, err := clientconfig.GetConfig()
-	if err != nil {
-		log.Fatalf("Error getting K8s config: %v", err)
+	enabledAuthenticators := map[string]bool{}
+	for _, authenticator := range c.Authenticators {
+		enabledAuthenticators[authenticator] = true
 	}
-	k8sAuthenticator, err := newKubernetesAuthenticator(restConfig, c.Audiences)
-	if err != nil {
-		log.Fatalf("Error creating K8s authenticator: %v", err)
+
+	authenticators := []authenticator.Request{}
+
+	if enabledAuthenticators["kubernetes"] {
+		// Get Kubernetes authenticator
+		restConfig, err := clientconfig.GetConfig()
+		if err != nil {
+			log.Fatalf("Error getting K8s config: %v", err)
+		}
+
+		k8sAuthenticator, err := newKubernetesAuthenticator(restConfig, c.Audiences)
+		if err != nil {
+			log.Fatalf("Error creating K8s authenticator: %v", err)
+		}
+
+		authenticators = append(authenticators, k8sAuthenticator)
 	}
 
 	// Get OIDC Session Authenticator
@@ -148,14 +160,17 @@ func main() {
 		Scopes:       c.OIDCScopes,
 	}
 
-	sessionAuthenticator := &sessionAuthenticator{
-		store:                   store,
-		cookie:                  userSessionCookie,
-		header:                  c.AuthHeader,
-		strictSessionValidation: c.StrictSessionValidation,
-		caBundle:                caBundle,
-		provider:                provider,
-		oauth2Config:            oauth2Config,
+	if enabledAuthenticators["session"] {
+		sessionAuthenticator := &sessionAuthenticator{
+			store:                   store,
+			cookie:                  userSessionCookie,
+			header:                  c.AuthHeader,
+			strictSessionValidation: c.StrictSessionValidation,
+			caBundle:                caBundle,
+			provider:                provider,
+			oauth2Config:            oauth2Config,
+		}
+		authenticators = append(authenticators, sessionAuthenticator)
 	}
 
 	// XXX maybe get rid of old groupsAuthorizer
@@ -172,13 +187,16 @@ func main() {
 
 	}
 
-	idTokenAuthenticator := &idTokenAuthenticator{
-		header:      c.IDTokenHeader,
-		caBundle:    caBundle,
-		provider:    provider,
-		clientID:    c.ClientID,
-		userIDClaim: c.UserIDClaim,
-		groupsClaim: c.GroupsClaim,
+	if enabledAuthenticators["idtoken"] {
+		idTokenAuthenticator := &idTokenAuthenticator{
+			header:      c.IDTokenHeader,
+			caBundle:    caBundle,
+			provider:    provider,
+			clientID:    c.ClientID,
+			userIDClaim: c.UserIDClaim,
+			groupsClaim: c.GroupsClaim,
+		}
+		authenticators = append(authenticators, idTokenAuthenticator)
 	}
 
 	// start watcher goroutine for configAuthorizer
@@ -249,12 +267,8 @@ func main() {
 		sessionDomain:           c.SessionDomain,
 		authHeader:              c.AuthHeader,
 		caBundle:                caBundle,
-		authenticators: []authenticator.Request{
-			sessionAuthenticator,
-			idTokenAuthenticator,
-			k8sAuthenticator,
-		},
-		authorizers: []Authorizer{groupsAuthorizer},
+		authenticators:          authenticators,
+		authorizers:             []Authorizer{groupsAuthorizer},
 	}
 	switch c.SessionSameSite {
 	case "None":
