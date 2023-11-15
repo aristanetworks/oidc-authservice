@@ -131,6 +131,7 @@ Applications can then use those headers to identify the user.
 | `AUTH_METHOD_HEADER` | "Auth-Method" | Name of the header that is included in the proxied requests to inform the upstream app about the authentication method used (`cookie` / `header`). |
 | `TOKEN_HEADER` | "Authorization" | Name of the header containing user id token (JWT) that will be added to the upstream request. |
 | `TOKEN_SCHEME` | "Bearer" | Authorization scheme (e.g. Bearer, Basic) used for user id token. |
+| `SESSION_JWTCOOKIE` | "" | When not empty, this is the name of the cookie set to the JWT |
 
 OIDC AuthService can authenticate clients based on the bearer token found in the Authorization header of their request. It caches the bearer token and the respective user information. If the incoming request has a cached bearer token then AuthService authenticates this client and proceeds with the basic authorization checks. The following
 settings are related to the caching mechanism:
@@ -158,7 +159,7 @@ settings are related to authorization:
 
 ## Extra JWT From Token authentication
 
-This authentication is similar to the JWT auth, except that it will use the JWT in a specific header.
+This authentication is similar to the JWT auth, except that it will use the JWT in a specific cookie.
 This auth is disabled by default. Options to enable it:
 
 | Setting | Default | Description |
@@ -167,8 +168,9 @@ This auth is disabled by default. Options to enable it:
 | JWTFROMEXTRAPROVIDER_PROVIDER_URL | "" | Set to the oidc provider url
 | JWTFROMEXTRAPROVIDER_ISSUER | `` | The issuer |
 | JWTFROMEXTRAPROVIDER_ISSUERNAME | `` | The issuer name |
-| JWTFROMEXTRAPROVIDER_HEADER_NAME | "" | Set to the header name where the JWT is set
+| JWTFROMEXTRAPROVIDER_COOKIE_NAME | "" | Set to the cookie name where the JWT is set
 | JWTFROMEXTRAPROVIDER_CLIENTID | "" | Set to the clientID the jwt should have
+| JWTFROMEXTRAPROVIDER_SETHEADER | "" | Set the HTTP header to the JWT value. Empty to not set any header
 
 ## Usage
 

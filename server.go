@@ -46,6 +46,7 @@ type server struct {
 	afterLogoutRedirectURL string
 	verifyAuthURL          string
 	sessionMaxAgeSeconds   int
+	jwtCookie              string
 
 	// Cache Configurations
 	cacheEnabled           bool
@@ -496,6 +497,20 @@ func (s *server) callback(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.WithField("redirectTo", destination).
 		Info("Login validated with ID token, redirecting.")
+
+	// Add JWT cookie if needed
+	if s.jwtCookie != "" {
+		http.SetCookie(w, &http.Cookie{
+			Name:     s.jwtCookie,
+			Value:    rawIDToken,
+			Path:     "/",
+			Domain:   session.Options.Domain,
+			MaxAge:   s.sessionMaxAgeSeconds,
+			SameSite: session.Options.SameSite,
+			Secure:   true,
+			HttpOnly: true,
+		})
+	}
 	http.Redirect(w, r, destination, http.StatusFound)
 }
 

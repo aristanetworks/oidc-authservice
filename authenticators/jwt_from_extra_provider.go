@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strings"
 
 	"github.com/arrikto/oidc-authservice/common"
 	goidc "github.com/coreos/go-oidc"
@@ -13,20 +12,19 @@ import (
 	"k8s.io/utils/strings/slices"
 )
 
-const bearerPrefix = "Bearer "
-
 type jwtFromExtraProviderAuthenticator struct {
-	headerName   string
+	cookieName   string
 	issuer       string
 	issuerName   string
 	clientID     string
+	setHeader    string
 	remoteKeySet goidc.KeySet
 }
 
 // This is not a full implementation of OIDC
 // It *just* checks the token against the keys of an extra provider.
 func NewJWTFromExtraProviderAuthenticator(
-	headerName, issuer, issuerName, clientID string,
+	cookieName, issuer, issuerName, clientID, setHeader string,
 	providerURL *url.URL) (Authenticator, error) {
 
 	if !slices.Contains([]string{"http", "https"}, providerURL.Scheme) {
@@ -35,9 +33,9 @@ func NewJWTFromExtraProviderAuthenticator(
 				"provider URL is incorrect: %s",
 			providerURL.String())
 	}
-	if headerName == "" {
+	if cookieName == "" {
 		return nil, errors.New(
-			"Error creating jwt from extra provider authenticator: header name is empty")
+			"Error creating jwt from extra provider authenticator: cookie name is empty")
 	}
 	if clientID == "" {
 		return nil, errors.New(
@@ -45,10 +43,11 @@ func NewJWTFromExtraProviderAuthenticator(
 	}
 
 	return &jwtFromExtraProviderAuthenticator{
-		headerName:   headerName,
+		cookieName:   cookieName,
 		issuer:       issuer,
 		issuerName:   issuerName,
 		clientID:     clientID,
+		setHeader:    setHeader,
 		remoteKeySet: goidc.NewRemoteKeySet(context.Background(), providerURL.String()+"/keys"),
 	}, nil
 }
@@ -56,15 +55,14 @@ func NewJWTFromExtraProviderAuthenticator(
 func (s *jwtFromExtraProviderAuthenticator) Authenticate(w http.ResponseWriter, r *http.Request) (*common.User, bool, error) {
 	logger := common.RequestLogger(r, "JWT extra token authenticator")
 
-	if len(r.Header[s.headerName]) != 1 {
+	cookie, err := r.Cookie(s.cookieName)
+	if err != nil {
 		return nil, false, nil
 	}
 
-	rawIDToken := strings.TrimPrefix(r.Header[s.headerName][0], bearerPrefix)
-
 	// Validate token
 	verifier := goidc.NewVerifier(s.issuer, s.remoteKeySet, &goidc.Config{ClientID: s.clientID})
-	jwt, err := verifier.Verify(r.Context(), rawIDToken)
+	jwt, err := verifier.Verify(r.Context(), cookie.Value)
 	if err != nil {
 		return nil, false, &common.AuthenticatorSpecificError{Err: err}
 	}
@@ -82,6 +80,11 @@ func (s *jwtFromExtraProviderAuthenticator) Authenticate(w http.ResponseWriter, 
 	user := common.User{
 		Name:   userID + ":" + s.issuerName,
 		Groups: groups,
+	}
+	if s.setHeader != "" {
+		user.Extra = map[string][]string{
+			s.setHeader: {cookie.Value},
+		}
 	}
 	return &user, true, nil
 }
