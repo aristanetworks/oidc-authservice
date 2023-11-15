@@ -192,10 +192,11 @@ func main() {
 	// Add the jwt extra authentication
 	if c.JWTFromExtraProviderEnabled {
 		jwtFromExtraProviderAuthenticator, err = authenticators.NewJWTFromExtraProviderAuthenticator(
-			c.JWTFromExtraProviderHeaderName,
+			c.JWTFromExtraProviderCookieName,
 			c.JWTFromExtraProviderIssuer,
 			c.JWTFromExtraProviderIssuerName,
 			c.JWTFromExtraProviderClientID,
+			c.JWTFromExtraProviderSetHeader,
 			c.JWTFromExtraProviderProviderURL)
 		if err != nil {
 			log.Fatal(err.Error())
@@ -230,6 +231,7 @@ func main() {
 		sessionMaxAgeSeconds:   c.SessionMaxAge,
 		cacheEnabled:           c.CacheEnabled,
 		cacheExpirationMinutes: c.CacheExpirationMinutes,
+		jwtCookie:              c.JWTCookie,
 
 		IDTokenAuthnEnabled:         c.IDTokenAuthnEnabled,
 		KubernetesAuthnEnabled:      c.KubernetesAuthnEnabled,

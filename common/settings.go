@@ -43,6 +43,9 @@ type Config struct {
 	UserIDTransformer UserIDTransformer `envconfig:"USERID_TRANSFORMERS"`
 	TokenHeader       string            `split_words:"true" default:"Authorization"`
 	TokenScheme       string            `split_words:"true" default:"Bearer"`
+	// When not empty, this is the name of the cookie set to the JWT
+	// added to the request for the backend
+	JWTCookie         string            `split_words:"true" envconfig:"SESSION_JWTCOOKIE"`
 
 	// IDToken
 	UserIDClaim       string `split_words:"true" default:"email" envconfig:"USERID_CLAIM"`
@@ -83,10 +86,11 @@ type Config struct {
 	AccessTokenAuthn                string   `split_words:"true" default:"jwt" envconfig:"ACCESS_TOKEN_AUTHN"`
 	JWTFromExtraProviderEnabled     bool     `split_words:"true" default:"false" envconfig:"JWTFROMEXTRAPROVIDER_AUTHN_ENABLED"`
 	JWTFromExtraProviderProviderURL *url.URL `default:"" envconfig:"JWTFROMEXTRAPROVIDER_PROVIDER_URL"`
-	JWTFromExtraProviderHeaderName  string   `default:"" envconfig:"JWTFROMEXTRAPROVIDER_HEADER_NAME"`
+	JWTFromExtraProviderCookieName  string   `default:"" envconfig:"JWTFROMEXTRAPROVIDER_COOKIE_NAME"`
 	JWTFromExtraProviderIssuer      string   `default:"" envconfig:"JWTFROMEXTRAPROVIDER_ISSUER"`
 	JWTFromExtraProviderIssuerName  string   `default:"" envconfig:"JWTFROMEXTRAPROVIDER_ISSUERNAME"`
 	JWTFromExtraProviderClientID    string   `default:"" envconfig:"JWTFROMEXTRAPROVIDER_CLIENTID"`
+	JWTFromExtraProviderSetHeader   string   `default:"" envconfig:"JWTFROMEXTRAPROVIDER_SETHEADER"`
 
 	// Authorization
 	GroupsAllowlist  []string `split_words:"true" default:"*"`
