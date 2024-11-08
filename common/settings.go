@@ -23,18 +23,20 @@ type Config struct {
 	OIDCStateStorePath      string   `split_words:"true" default:"/var/lib/authservice/data.db"`
 
 	// General
-	AuthserviceURLPrefix *url.URL `required:"true" split_words:"true"`
-	SkipAuthURLs         []string `split_words:"true" envconfig:"SKIP_AUTH_URLS"`
-	AuthHeader           string   `split_words:"true" default:"Authorization"`
-	AuthMethodHeader     string   `split_words:"true" default:"Auth-Method"`
-	SchemeDefault        string   `split_words:"true" default:"https"`
-	SchemeHeader         string   `split_words:"true" default:"X-Forwarded-Proto"`
-	Audiences            []string `default:"istio-ingressgateway.istio-system.svc.cluster.local"`
-	HomepageURL          *url.URL `split_words:"true"`
-	AfterLoginURL        *url.URL `split_words:"true"`
-	AfterLogoutURL       *url.URL `split_words:"true"`
-	VerifyAuthURL        *url.URL `split_words:"true"`
-	LogLevel             string   `split_words:"true" default:"INFO"`
+	AuthserviceURLPrefix  *url.URL `required:"true" split_words:"true"`
+	SkipAuthURLs          []string `split_words:"true" envconfig:"SKIP_AUTH_URLS"`
+	AuthHeader            string   `split_words:"true" default:"Authorization"`
+	AuthMethodHeader      string   `split_words:"true" default:"Auth-Method"`
+	SchemeDefault         string   `split_words:"true" default:"https"`
+	SchemeHeader          string   `split_words:"true" default:"X-Forwarded-Proto"`
+	Audiences             []string `default:"istio-ingressgateway.istio-system.svc.cluster.local"`
+	HomepageURL           *url.URL `split_words:"true"`
+	AfterLoginURL         *url.URL `split_words:"true"`
+	AfterLogoutURL        *url.URL `split_words:"true"`
+	VerifyAuthURL         *url.URL `split_words:"true"`
+	LogLevel              string   `split_words:"true" default:"INFO"`
+	DynamicCsrfCookieName bool     `split_words:"true"`
+
 
 	// Identity Headers
 	UserIDHeader      string            `split_words:"true" envconfig:"USERID_HEADER"`

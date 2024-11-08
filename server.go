@@ -47,6 +47,7 @@ type server struct {
 	verifyAuthURL          string
 	sessionMaxAgeSeconds   int
 	jwtCookie              string
+	dynamicCsrfCookieName  bool
 
 	// Cache Configurations
 	cacheEnabled           bool
@@ -365,7 +366,8 @@ func (s *server) authCodeFlowAuthenticationRequest(w http.ResponseWriter, r *htt
 	logger := common.RequestLogger(r, logModuleInfo)
 
 	// Initiate OIDC Flow with Authorization Request.
-	state, err := sessions.CreateState(r, w, s.oidcStateStore, s.sessionDomain, s.newState)
+	state, err := sessions.CreateState(r, w, s.oidcStateStore, s.sessionDomain,
+		s.newState, s.dynamicCsrfCookieName)
 	if err != nil {
 		logger.Errorf("Failed to save state in store: %v", err)
 		common.ReturnMessage(w, http.StatusInternalServerError, "Failed to save state in store.")
@@ -403,7 +405,7 @@ func (s *server) callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If state is loaded, then it's correct, as it is saved by its id.
-	state, err := sessions.VerifyState(r, w, s.oidcStateStore)
+	state, err := sessions.VerifyState(r, w, s.oidcStateStore, s.dynamicCsrfCookieName)
 	if err != nil {
 		logger.Errorf("Failed to verify state parameter: %v", err)
 		common.ReturnMessage(w, http.StatusBadRequest, "CSRF check failed."+
