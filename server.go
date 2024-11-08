@@ -47,6 +47,7 @@ type server struct {
 	verifyAuthURL          string
 	sessionMaxAgeSeconds   int
 	jwtCookie              string
+	verboseCallbackFailure bool
 
 	// Cache Configurations
 	cacheEnabled           bool
@@ -406,9 +407,24 @@ func (s *server) callback(w http.ResponseWriter, r *http.Request) {
 	state, err := sessions.VerifyState(r, w, s.oidcStateStore)
 	if err != nil {
 		logger.Errorf("Failed to verify state parameter: %v", err)
-		common.ReturnMessage(w, http.StatusBadRequest, "CSRF check failed."+
-			" This may happen if you opened the login form in more than 1"+
-			" tabs. Please try to login again.")
+		msg := "CSRF check failed." +
+			" This may happen if you opened the login form in more than 1" +
+			" tabs. Please try to login again."
+		// if s.verboseCallbackFailure {
+		// 	// Attempt to manually extract FirstVisitedURL from s.oidcStateStore
+		// 	session, err := s.oidcStateStore.Get(r, "oidc_state_csrf")
+		// 	if err != nil {
+		// 		logger.Errorf("Failed to get session while processing callback failure")
+		// 	} else {
+		// 		if session.Values["state"] != nil {
+		// 			state := session.Values["state"].(sessions.State)
+		// 			msg += " First Visited Url: " + state.FirstVisitedURL
+		// 		} else {
+		// 			msg += " First Visited Url: Unknown (could not load state)"
+		// 		}
+		// 	}
+		// }
+		common.ReturnMessage(w, http.StatusBadRequest, msg)
 		return
 	}
 

@@ -232,6 +232,7 @@ func main() {
 		cacheEnabled:           c.CacheEnabled,
 		cacheExpirationMinutes: c.CacheExpirationMinutes,
 		jwtCookie:              c.JWTCookie,
+		verboseCallbackFailure: c.VerboseCallbackFailure,
 
 		IDTokenAuthnEnabled:         c.IDTokenAuthnEnabled,
 		KubernetesAuthnEnabled:      c.KubernetesAuthnEnabled,

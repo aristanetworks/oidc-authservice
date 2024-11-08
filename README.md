@@ -64,6 +64,7 @@ Following environment variables are used by the software.
 | `AUTH_HEADER` | `Authorization` | When the AuthService logs in a user, it creates a session for them and saves it in its database. The session secret value is saved in a cookie in the user's browser. However, for programmatic access to endpoints, it is better to use headers to authenticate. The AuthService also accepts credentials in a header configured by the `AUTH_HEADER` setting. |
 | `ID_TOKEN_HEADER` | `Authorization` | When id token is carried in this header, OIDC Authservice verifies the id token and uses the `USERID_CLAIM` inside the id token. If the `USERID_CLAIM` doesn't exist, the authentication would fail.|
 | `LOG_LEVEL` | "INFO" | Set the log level to one of "FATAL", "ERROR", "WARN", "INFO", or "DEBUG" to specify the verbosity of the OIDC-Authservice logs. |
+| `VERBOSE_CALLBACK_FAILURE` | `false` | While handling a callback during an authentication flow, this setting will show additional information (like the first visited URL) to give clients some indication of the URL they were trying to access before encountering an error |
 
 The AuthService provides a web server with some defaults pages for a `homepage`
 and an `after_logout` page. The following values are about these pages. To
