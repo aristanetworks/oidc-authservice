@@ -4,6 +4,7 @@ package sessions
 
 import (
 	"encoding/gob"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"strings"
@@ -17,7 +18,11 @@ import (
 const (
 	oidcStateCookie   = "oidc_state_csrf"
 	sessionValueState = "state"
+	charset           = "abcdefghijklmnopqrstuvwxyz"
 )
+
+var seededRand *rand.Rand = rand.New(
+	rand.NewSource(time.Now().UnixNano()))
 
 func init() {
 	gob.Register(State{})
@@ -79,14 +84,34 @@ func newSchemeAndHost(config *Config) StateFunc {
 	}
 }
 
+// stringWithCharset creates a random string of length from charset
+func stringWithCharset(length int, charset string) string {
+	b := make([]byte, length)
+	for i := range b {
+	  b[i] = charset[seededRand.Intn(len(charset))]
+	}
+	return string(b)
+  }
+
+// randString returns a random string of given length
+func randString(length int) string {
+	return stringWithCharset(length, charset)
+}
+
 // CreateState creates the state parameter from the incoming request, stores
 // it in the session store and sets a cookie with the session key.
 // It returns the session key, which can be used as the state value to start
 // an OIDC authentication request.
 func CreateState(r *http.Request, w http.ResponseWriter,
 	store sessions.Store, sessionDomain string, fn StateFunc) (string, error) {
+	gate := true
+	nonce := randString(8)
+	oidcStateCookieName := oidcStateCookie
+	if (gate) {
+		oidcStateCookieName += "_" + nonce
+	}
 	s := fn(r)
-	session := sessions.NewSession(store, oidcStateCookie)
+	session := sessions.NewSession(store, oidcStateCookieName)
 	session.Options.MaxAge = int((20 * time.Minute).Seconds())
 	session.Options.Path = "/"
 	session.Options.Domain = sessionDomain
@@ -100,11 +125,15 @@ func CreateState(r *http.Request, w http.ResponseWriter,
 	// Cookie is persisted in ResponseWriter, make a request to parse it.
 	tempReq := &http.Request{Header: make(http.Header)}
 	tempReq.Header.Set("Cookie", w.Header().Get("Set-Cookie"))
-	c, err := tempReq.Cookie(oidcStateCookie)
+	c, err := tempReq.Cookie(oidcStateCookieName)
 	if err != nil {
 		return "", errors.Wrap(err, "error trying to save session")
 	}
-	return c.Value, nil
+	stateValue := c.Value
+	if (gate) {
+		stateValue += "." + nonce
+	}
+	return stateValue, nil
 }
 
 // VerifyState gets the state from the cookie 'initState' saved. It also gets
@@ -119,20 +148,32 @@ func CreateState(r *http.Request, w http.ResponseWriter,
 func VerifyState(r *http.Request, w http.ResponseWriter,
 	store sessions.Store) (*State, error) {
 
+	gate := true
+
 	// Get the state from the HTTP param.
 	var stateParam = r.FormValue("state")
 	if len(stateParam) == 0 {
 		return nil, errors.New("Missing url parameter: state")
 	}
 
+	oidcStateCookieName := oidcStateCookie
+	stateValue := stateParam
+	nonce := ""
+	if(gate) {
+		stateParamParts := strings.Split(stateParam, ".")
+		stateValue = stateParamParts[0]
+		nonce = stateParamParts[1]
+		oidcStateCookieName += "_" + nonce
+	}
+
 	// Get the state from the cookie the user-agent sent.
-	stateCookie, err := r.Cookie(oidcStateCookie)
+	stateCookie, err := r.Cookie(oidcStateCookieName)
 	if err != nil {
-		return nil, errors.Errorf("Missing cookie: '%s'", oidcStateCookie)
+		return nil, errors.Errorf("Missing cookie: '%s'", oidcStateCookieName)
 	}
 
 	// Confirm the two values match.
-	if stateParam != stateCookie.Value {
+	if stateValue != stateCookie.Value {
 		return nil, errors.New("State value from http params doesn't match " +
 			"value in cookie. Possible reasons for this error include " +
 			"opening the login form in more than 1 browser tabs OR a CSRF " +
@@ -140,7 +181,7 @@ func VerifyState(r *http.Request, w http.ResponseWriter,
 	}
 
 	// Retrieve session from store. If it doesn't exist, it may have expired.
-	session, err := store.Get(r, oidcStateCookie)
+	session, err := store.Get(r, oidcStateCookieName)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
