@@ -2,7 +2,7 @@
 # Builder Image #
 #################
 
-FROM golang:1.18.8-alpine3.16 as builder
+FROM golang:1.23-alpine3.21 as builder
 
 WORKDIR /go/src/oidc-authservice
 # Download all dependencies
@@ -23,7 +23,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-extldflags "-static"' -o /go
 # Release Image #
 #################
 
-FROM alpine:3.16
+FROM alpine:3.21
 RUN apk add --no-cache ca-certificates
 
 ENV USER=authservice
@@ -37,8 +37,9 @@ WORKDIR $APP_HOME
 # Copy in binary and give permissions
 COPY --from=builder /go/bin/oidc-authservice $APP_HOME
 COPY web $APP_HOME/web
-RUN chmod +x $APP_HOME/oidc-authservice
-RUN chown -R $USER:$GROUP $APP_HOME
+RUN chmod +x $APP_HOME/oidc-authservice \
+ && chmod -R a+rX $APP_HOME/web \
+ && chown -R $USER:$GROUP $APP_HOME
 
 USER $USER
 
