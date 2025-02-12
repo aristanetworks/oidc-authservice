@@ -78,7 +78,7 @@ func (s *jwtFromExtraProviderAuthenticator) Authenticate(w http.ResponseWriter, 
 	}
 
 	user := common.User{
-		Name:   userID + ":" + s.issuerName,
+		Name:   userID,
 		Groups: groups,
 	}
 	if s.setHeader != "" {
