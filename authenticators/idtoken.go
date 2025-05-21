@@ -34,8 +34,6 @@ func (s *IDTokenAuthenticator) Authenticate(w http.ResponseWriter, r *http.Reque
 	logger := common.RequestLogger(r, "idtoken authenticator")
 	logger.Infof("Attempting idtoken authentication using token header '%s'", s.Header)
 
-	clientID := r.Header.Get("X-OIDC-Client-Id")
-
 	// get id-token from header
 	bearer := common.GetBearerToken(r.Header.Get(s.Header))
 	if len(bearer) == 0 {
@@ -46,7 +44,7 @@ func (s *IDTokenAuthenticator) Authenticate(w http.ResponseWriter, r *http.Reque
 	ctx := s.TLSConfig.Context(r.Context())
 
 	// Verifying received ID token
-	token, err := s.SessionManager.Verify(ctx, bearer, clientID)
+	token, err := s.SessionManager.VerifyWithoutClientId(ctx, bearer)
 	if err != nil {
 		logger.Errorf("id-token verification failed: %v", err)
 		return nil, false, nil
