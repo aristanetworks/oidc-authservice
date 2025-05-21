@@ -14,12 +14,18 @@ type IDTokenAuthenticator struct {
 	GroupsClaim    string
 	SessionManager sessions.SessionManager
 	TLSConfig      common.TlsConfig
+	TokenHeader    string // TokenHeader is the header that is set by the authenticator containing the user id token
+	TokenScheme    string // TokenScheme is the authorization scheme used for sending the user id token.
 }
 
 func NewIDTokenAuthenticator(
-	header, userIDClaim, groupsClaim string,
+	header,
+	userIDClaim,
+	groupsClaim string,
 	tlsCfg common.TlsConfig,
 	sm sessions.SessionManager,
+	th string,
+	ts string,
 ) Authenticator {
 	return &IDTokenAuthenticator{
 		Header:         header,
@@ -27,6 +33,8 @@ func NewIDTokenAuthenticator(
 		GroupsClaim:    groupsClaim,
 		SessionManager: sm,
 		TLSConfig:      tlsCfg,
+		TokenHeader:    th,
+		TokenScheme:    ts,
 	}
 }
 
@@ -71,6 +79,14 @@ func (s *IDTokenAuthenticator) Authenticate(w http.ResponseWriter, r *http.Reque
 
 	// Authentication using header successfully completed
 	extra := map[string][]string{"auth-method": {"header"}}
+
+	// set auth header with user token
+	idHeader := bearer
+	// prepend authorization scheme if one is specified
+	if s.TokenScheme != "" {
+		idHeader = s.TokenScheme + " " + idHeader
+	}
+	w.Header().Set(s.TokenHeader, idHeader)
 
 	user := common.User{
 		Name:   userID,

@@ -151,6 +151,8 @@ func main() {
 		c.GroupsClaim,
 		tlsCfg,
 		sessionManager,
+		c.TokenHeader,
+		c.TokenScheme,
 	)
 
 	jwtTokenAuthenticator := authenticators.NewJWTTokenAuthenticator(
