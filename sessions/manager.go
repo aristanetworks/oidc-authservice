@@ -100,6 +100,12 @@ func (s *SessionManager) VerifyWithClientId(ctx context.Context,
 	return verifier.Verify(ctx, idToken)
 }
 
+func (s *SessionManager) VerifyWithoutClientId(ctx context.Context,
+	idToken string) (*goidc.IDToken, error) {
+	verifier := s.provider.Verifier(&goidc.Config{SkipClientIDCheck: true})
+	return verifier.Verify(ctx, idToken)
+}
+
 // TokenSource is a wrapper around oauth2.Config.TokenSource that additionally
 // returns a boolean indicator for a token refresh.
 func (s *SessionManager) TokenSource(ctx context.Context,
