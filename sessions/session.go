@@ -121,7 +121,7 @@ func SessionFromRequest(r *http.Request, store sessions.Store, cookie,
 
 // revokeSession revokes the given session.
 func revokeSession(ctx context.Context, w http.ResponseWriter,
-	session *sessions.Session) error {
+	session *sessions.Session, sessionDomain string) error {
 
 	// Delete the session by setting its MaxAge to a negative number.
 	// This will delete the session from the store and also add a "Set-Cookie"
@@ -129,6 +129,7 @@ func revokeSession(ctx context.Context, w http.ResponseWriter,
 	// XXX: The session.Save function doesn't really need the request, but only
 	// uses it for its context.
 	session.Options.MaxAge = -1
+	session.Options.Domain = sessionDomain
 	r := &http.Request{}
 	if err := session.Save(r.WithContext(ctx), w); err != nil {
 		return errors.Wrap(err, "Couldn't delete user session")
