@@ -82,8 +82,9 @@ func (s *SessionManager) ExchangeCode(
 }
 
 func (s *SessionManager) RevokeSession(
-	ctx context.Context, w http.ResponseWriter, session *sessions.Session, tlsCfg common.TlsConfig) error {
-	return s.RevokeOIDCSession(ctx, w, session, tlsCfg)
+	ctx context.Context, w http.ResponseWriter, session *sessions.Session, tlsCfg common.TlsConfig,
+	sessionDomain string) error {
+	return s.RevokeOIDCSession(ctx, w, session, tlsCfg, sessionDomain)
 }
 
 func (s *SessionManager) Verify(ctx context.Context, idToken, clientID string) (*goidc.IDToken, error) {
@@ -154,7 +155,7 @@ func (s *SessionManager) SaveToken(session *sessions.Session, ctx context.Contex
 // TODO: In the future, we may want to make this function take a function as
 // input, instead of polluting it with extra arguments.
 func (s *SessionManager) RevokeOIDCSession(ctx context.Context, w http.ResponseWriter,
-	session *sessions.Session, tlsCfg common.TlsConfig) error {
+	session *sessions.Session, tlsCfg common.TlsConfig, sessionDomain string) error {
 
 	logger := common.StandardLogger()
 
@@ -172,5 +173,5 @@ func (s *SessionManager) RevokeOIDCSession(ctx context.Context, w http.ResponseW
 		logger.WithField("userid", session.Values[UserSessionUserID].(string)).Info("Access/Refresh tokens revoked")
 	}
 
-	return revokeSession(ctx, w, session)
+	return revokeSession(ctx, w, session, sessionDomain)
 }

@@ -311,7 +311,7 @@ func (s *server) authorized(w http.ResponseWriter, r *http.Request, userInfo *co
 				logger.Errorf("Error getting session for request: %v", err)
 			}
 			if !session.IsNew {
-				err := s.sessionManager.RevokeSession(r.Context(), w, session, s.tlsCfg)
+				err := s.sessionManager.RevokeSession(r.Context(), w, session, s.tlsCfg, s.sessionDomain)
 				if err != nil {
 					logger.Errorf("Failed to revoke session after authorization fail: %v", err)
 				}
@@ -405,7 +405,7 @@ func (s *server) callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If state is loaded, then it's correct, as it is saved by its id.
-	state, err := sessions.VerifyState(r, w, s.oidcStateStore, s.dynamicCsrfCookieName)
+	state, err := sessions.VerifyState(r, w, s.oidcStateStore, s.dynamicCsrfCookieName, s.sessionDomain)
 	if err != nil {
 		logger.Errorf("Failed to verify state parameter: %v", err)
 		common.ReturnMessage(w, http.StatusBadRequest, "CSRF check failed."+
@@ -565,7 +565,7 @@ func (s *server) logout(w http.ResponseWriter, r *http.Request) {
 	}
 	logger = logger.WithField("userid", session.Values[sessions.UserSessionUserID].(string))
 
-	err = s.sessionManager.RevokeSession(r.Context(), w, session, s.tlsCfg)
+	err = s.sessionManager.RevokeSession(r.Context(), w, session, s.tlsCfg, s.sessionDomain)
 	if err != nil {
 		logger.Errorf("Error revoking tokens: %v", err)
 		statusCode := http.StatusInternalServerError

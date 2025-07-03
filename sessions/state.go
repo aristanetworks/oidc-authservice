@@ -88,10 +88,10 @@ func newSchemeAndHost(config *Config) StateFunc {
 func stringWithCharset(length int, charset string) string {
 	b := make([]byte, length)
 	for i := range b {
-	  b[i] = charset[seededRand.Intn(len(charset))]
+		b[i] = charset[seededRand.Intn(len(charset))]
 	}
 	return string(b)
-  }
+}
 
 // randString returns a random string of given length
 func randString(length int) string {
@@ -106,7 +106,7 @@ func CreateState(r *http.Request, w http.ResponseWriter, store sessions.Store,
 	sessionDomain string, fn StateFunc, dynamicOidcStateCookieName bool) (string, error) {
 	nonce := randString(8)
 	oidcStateCookieName := oidcStateCookie
-	if (dynamicOidcStateCookieName) {
+	if dynamicOidcStateCookieName {
 		oidcStateCookieName += "_" + nonce
 	}
 	s := fn(r)
@@ -129,7 +129,7 @@ func CreateState(r *http.Request, w http.ResponseWriter, store sessions.Store,
 		return "", errors.Wrap(err, "error trying to save session")
 	}
 	stateValue := c.Value
-	if (dynamicOidcStateCookieName) {
+	if dynamicOidcStateCookieName {
 		stateValue += "." + nonce
 	}
 	return stateValue, nil
@@ -145,7 +145,8 @@ func CreateState(r *http.Request, w http.ResponseWriter, store sessions.Store,
 // Finally, it returns a State struct, which contains information associated
 // with the particular OIDC flow.
 func VerifyState(r *http.Request, w http.ResponseWriter,
-	store sessions.Store, dynamicOidcStateCookieName bool) (*State, error) {
+	store sessions.Store, dynamicOidcStateCookieName bool,
+	sessionDomain string) (*State, error) {
 
 	// Get the state from the HTTP param.
 	var stateParam = r.FormValue("state")
@@ -156,7 +157,7 @@ func VerifyState(r *http.Request, w http.ResponseWriter,
 	oidcStateCookieName := oidcStateCookie
 	stateValue := stateParam
 	nonce := ""
-	if (dynamicOidcStateCookieName) {
+	if dynamicOidcStateCookieName {
 		stateParamParts := strings.Split(stateParam, ".")
 		stateValue = stateParamParts[0]
 		nonce = stateParamParts[1]
@@ -189,7 +190,7 @@ func VerifyState(r *http.Request, w http.ResponseWriter,
 	state := session.Values[sessionValueState].(State)
 
 	// Revoke the session so that each state value can only be used once.
-	if err = revokeSession(r.Context(), w, session); err != nil {
+	if err = revokeSession(r.Context(), w, session, sessionDomain); err != nil {
 		return nil, errors.Wrap(err, "error revoking state session")
 	}
 	return &state, nil

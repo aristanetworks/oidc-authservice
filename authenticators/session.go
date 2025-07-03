@@ -29,6 +29,9 @@ type SessionAuthenticator struct {
 	TLSConfig common.TlsConfig
 	// SessionManager is responsible for managing OIDC sessions
 	SessionManager sessions.SessionManager
+	// SessionDomain is the domain that cookies issued by this app
+	// are issued under
+	SessionDomain string
 }
 
 func NewSessionAuthenticator(
@@ -37,7 +40,8 @@ func NewSessionAuthenticator(
 	tokenHeader, tokenScheme string,
 	strictSessionValidation bool,
 	tlsCfg common.TlsConfig,
-	sessionManager sessions.SessionManager) Authenticator {
+	sessionManager sessions.SessionManager,
+	sessionDomain string) Authenticator {
 
 	return &SessionAuthenticator{
 		Store:                   store,
@@ -47,6 +51,7 @@ func NewSessionAuthenticator(
 		StrictSessionValidation: strictSessionValidation,
 		TLSConfig:               tlsCfg,
 		SessionManager:          sessionManager,
+		SessionDomain:           sessionDomain,
 	}
 }
 
@@ -75,7 +80,7 @@ func (sa *SessionAuthenticator) Authenticate(w http.ResponseWriter, r *http.Requ
 		// Access token has expired
 		logger.Info("OAuth2 tokens have expired, revoking OIDC session")
 		revokeErr := sa.SessionManager.RevokeOIDCSession(ctx, httptest.NewRecorder(),
-			session, sa.TLSConfig)
+			session, sa.TLSConfig, sa.SessionDomain)
 		if revokeErr != nil {
 			logger.Errorf("Failed to revoke tokens: %v", revokeErr)
 		}
@@ -100,7 +105,7 @@ func (sa *SessionAuthenticator) Authenticate(w http.ResponseWriter, r *http.Requ
 			// access to the ResponseWriter and thus can't set a cookie. This
 			// means that the cookie will remain at the user's browser but it
 			// will be replaced after the user logs in again.
-			err = sa.SessionManager.RevokeSession(ctx, httptest.NewRecorder(), session, sa.TLSConfig)
+			err = sa.SessionManager.RevokeSession(ctx, httptest.NewRecorder(), session, sa.TLSConfig, sa.SessionDomain)
 			if err != nil {
 				logger.Errorf("Failed to revoke tokens: %v", err)
 			}

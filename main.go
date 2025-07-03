@@ -143,6 +143,7 @@ func main() {
 		c.StrictSessionValidation,
 		tlsCfg,
 		sessionManager,
+		s.sessionDomain,
 	)
 
 	idTokenAuthenticator := authenticators.NewIDTokenAuthenticator(
