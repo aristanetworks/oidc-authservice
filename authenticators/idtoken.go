@@ -64,6 +64,14 @@ func (s *IDTokenAuthenticator) Authenticate(w http.ResponseWriter, r *http.Reque
 		return nil, false, nil
 	}
 
+	// set auth header with client token
+	idHeader := bearer
+	// prepend authorization scheme if one is specified
+	if s.TokenScheme != "" {
+		idHeader = s.TokenScheme + " " + idHeader
+	}
+	w.Header().Set(s.TokenHeader, idHeader)
+
 	userID, err := claims.UserID()
 	if err != nil {
 		// this token doesn't have a userid claim (or the associated groups)
@@ -77,14 +85,6 @@ func (s *IDTokenAuthenticator) Authenticate(w http.ResponseWriter, r *http.Reque
 
 	// Authentication using header successfully completed
 	extra := map[string][]string{"auth-method": {"header"}}
-
-	// set auth header with user token
-	idHeader := bearer
-	// prepend authorization scheme if one is specified
-	if s.TokenScheme != "" {
-		idHeader = s.TokenScheme + " " + idHeader
-	}
-	w.Header().Set(s.TokenHeader, idHeader)
 
 	user := common.User{
 		Name:   userID,
