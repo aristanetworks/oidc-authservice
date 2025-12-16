@@ -207,6 +207,7 @@ func (s *server) authenticate(w http.ResponseWriter, r *http.Request, promptLogi
 			// Nonempty X-Requested-With header implies that this is an m2m request and
 			// so we should not try to redirect the caller to a human-centric login portal.
 			common.ReturnMessage(w, http.StatusUnauthorized, "Unauthorized")
+			return nil, false
 		}
 		s.authCodeFlowAuthenticationRequest(w, r)
 		return nil, false
