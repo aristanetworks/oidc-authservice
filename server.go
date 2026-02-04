@@ -202,15 +202,23 @@ func (s *server) authenticate(w http.ResponseWriter, r *http.Request, promptLogi
 			return nil, false
 		}
 
-		logger.Infof("Failed to authenticate using authenticators. Initiating OIDC Authorization Code flow...")
-		if requestedWith := r.Header.Get("X-Requested-With"); len(requestedWith) > 0 {
+		switch r.Header.Get("X-On-Unauthorized") {
+		case "", "redirect":
+			logger.Infof("Failed to authenticate using authenticators. Initiating OIDC Authorization Code flow...")
+			s.authCodeFlowAuthenticationRequest(w, r)
+			return nil, false
+		case "reject":
 			// Nonempty X-Requested-With header implies that this is an m2m request and
 			// so we should not try to redirect the caller to a human-centric login portal.
+			logger.Infof("Failed to authenticate using authenticators. Rejecting based on request headers")
 			common.ReturnMessage(w, http.StatusUnauthorized, "Unauthorized")
 			return nil, false
+		default:
+			common.ReturnMessage(w,
+				http.StatusBadRequest,
+				"Unrecognized value for X-On-Unauthorized header")
+			return nil, false
 		}
-		s.authCodeFlowAuthenticationRequest(w, r)
-		return nil, false
 	}
 
 	logger = logger.WithField("user", userInfo)
