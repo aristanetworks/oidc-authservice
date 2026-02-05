@@ -4,6 +4,7 @@ package main
 
 import (
 	"fmt"
+	"html"
 	"net/http"
 	"reflect"
 	"strings"
@@ -21,6 +22,10 @@ import (
 
 const (
 	logModuleInfo = "server"
+
+	xOnUnauthorizedHeader             = "X-On-Unauthorized"
+	xOnUnauthorizedRedirect           = "redirect"
+	xOnUnauthorizedStatusUnauthorized = "return-status-unauthorized"
 )
 
 var (
@@ -202,10 +207,32 @@ func (s *server) authenticate(w http.ResponseWriter, r *http.Request, promptLogi
 			return nil, false
 		}
 
-		logger.Infof("Failed to authenticate using authenticators. Initiating OIDC Authorization Code flow...")
-		// TODO: Detect "X-Requested-With" header and return 401
-		s.authCodeFlowAuthenticationRequest(w, r)
-		return nil, false
+		onUnauthorized := r.Header.Get(xOnUnauthorizedHeader)
+		if onUnauthorized == "" {
+			// Treat "redirect" as our default when the user did not provide a value.
+			onUnauthorized = xOnUnauthorizedRedirect
+		}
+		switch onUnauthorized {
+		case xOnUnauthorizedRedirect:
+			// Our default behavior here is to redirect the user to a login portal. This
+			// is very convenient for when the client is a web-browser.
+			logger.Infof("Failed to authenticate using authenticators. Initiating OIDC Authorization Code flow...")
+			s.authCodeFlowAuthenticationRequest(w, r)
+			return nil, false
+		case xOnUnauthorizedStatusUnauthorized:
+			// The client has requested a 4xx response (they are probably a robot client)
+			// so we should not try to redirect the caller to a human-centric login portal.
+			logger.Infof("Failed to authenticate using authenticators. Rejecting based on request headers")
+			common.ReturnMessage(w, http.StatusUnauthorized, "Unauthorized")
+			return nil, false
+		default:
+			common.ReturnMessage(w,
+				http.StatusBadRequest,
+				fmt.Sprintf("Unrecognized value for header %q: %q (html-escaped)",
+					xOnUnauthorizedHeader,
+					sanitizeForBody(onUnauthorized)))
+			return nil, false
+		}
 	}
 
 	logger = logger.WithField("user", userInfo)
@@ -218,6 +245,14 @@ func (s *server) authenticate(w http.ResponseWriter, r *http.Request, promptLogi
 	}
 
 	return userInfo, true
+}
+
+func sanitizeForBody(inpt string) string {
+	asRunes := []rune(inpt)
+	if len(asRunes) > 16 {
+		inpt = string(asRunes[:16]) + "..."
+	}
+	return html.EscapeString(inpt)
 }
 
 // tryAuthenticators will iterate over the available enabled authenticators.
